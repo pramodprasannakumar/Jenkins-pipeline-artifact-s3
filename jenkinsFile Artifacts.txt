@@ -1,0 +1,75 @@
+pipeline {
+    agent any 
+    
+    stages {
+        stage('clean workspace'){
+            steps{
+                cleanWs()
+            }
+        }
+        stage('SCM Git clone from Github') {
+            steps {
+               git branch: 'stage', credentialsId: 'Jenkins-new', url: 'https://github.com/Insight-Therapy/website-dynamic.git'
+               
+            }
+        }
+        stage('Get commit ID') {
+            steps {
+                script {
+                    // Save the commit ID to a variable
+                    commitId = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    echo "Commit ID: ${commitId}"
+                }
+            }
+        }
+        stage('zip the SCM artifacts') {
+            steps {
+               script {
+                                       
+                    // Execute the deployment script
+                    sh """
+                        # Create a temporary directory
+                        mkdir -p /tmp/archive
+                        # Use rsync to copy the contents, excluding the .git directory
+                        rsync -av --exclude='.git' ./ /tmp/archive/
+                        # Create the tarball from the temporary directory
+                       # tar -czvf artifacts-${BUILD_NUMBER}.tar.gz -C /tmp/archive .
+                        tar -czvf artifacts-${JOB_NAME}-${BUILD_NUMBER}-${commitId}.tar.gz -C /tmp/archive .
+                    """
+                }
+               
+            }
+        }
+        stage('Upload Artifacts') {
+            steps {
+               s3Upload consoleLogLevel: 'INFO', dontSetBuildResultOnFailure: false, dontWaitForConcurrentBuildCompletion: false, entries: [[bucket: 'itsartifacts', excludedFile: '', flatten: false, gzipFiles: false, keepForever: false, managedArtifacts: false, noUploadOnFailure: false, selectedRegion: 'us-east-1', showDirectlyInBrowser: false, sourceFile: '*.tar.gz', storageClass: 'STANDARD', uploadFromSlave: false, useServerSideEncryption: false]], pluginFailureResultConstraint: 'FAILURE', profileName: 's3 Iam User', userMetadata: []
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                def buildStatus = currentBuild.currentResult
+                def buildUser = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')[0]?.userId ?: 'InsightTherapy Github User'
+                
+                emailext (
+                    subject: "Pipeline ${buildStatus}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                        <p>This is a Jenkins CICD pipeline status.</p>
+                        <p>Project: ${env.JOB_NAME}</p>
+                        <p>Build Number: ${env.BUILD_NUMBER}</p>
+                        <p>Build Status: ${buildStatus}</p>
+                        <p>Started by: ${buildUser}</p>
+                        <p>Build URL: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                        
+                    """,
+                    to: 'aseem@insighttherapy.us',
+                    from: 'aseem@insighttherapy.us',
+                    replyTo: 'aseem@insighttherapy.us',
+                    mimeType: 'text/html'
+                )
+            }
+        }
+    }
+}
