@@ -9,7 +9,7 @@ pipeline {
         }
         stage('SCM Git clone from Github') {
             steps {
-               git branch: 'stage', credentialsId: 'Jenkins-new', url: 'https://github.com/Insight-Therapy/website-dynamic.git'
+               git branch: 'stage', credentialsId: 'Jenkins-new', url: 'https://github.com/mywebsite.git'
                
             }
         }
@@ -64,9 +64,9 @@ pipeline {
                         <p>Build URL: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
                         
                     """,
-                    to: 'aseem@insighttherapy.us',
-                    from: 'aseem@insighttherapy.us',
-                    replyTo: 'aseem@insighttherapy.us',
+                    to: 'aseem@gmail.com',
+                    from: 'aseem@gmail.com',
+                    replyTo: 'aseem@gmail.com',
                     mimeType: 'text/html'
                 )
             }
